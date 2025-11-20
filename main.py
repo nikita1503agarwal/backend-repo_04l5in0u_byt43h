@@ -133,20 +133,107 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> User:
         raise HTTPException(status_code=401, detail="Neveljaven ali potekel žeton")
 
 
-# ---------- Bootstrap minimal schools (demo seed) ----------
+# ---------- Schools seed ----------
 DEMO_SCHOOLS = [
     {"id": "si-os-0001", "name": "OŠ Vič", "type": "OŠ", "city": "Ljubljana"},
     {"id": "si-ss-0002", "name": "Gimnazija Bežigrad", "type": "SŠ", "city": "Ljubljana"},
     {"id": "si-uni-0003", "name": "Univerza v Ljubljani — FRI", "type": "Fakulteta", "city": "Ljubljana"},
 ]
 
+SLO_SCHOOL_NAMES = [
+    "Alma Mater Europaea - Evropski center Maribor (samostojni visokošolski zavod)",
+    "Biotehniška fakulteta (Univerza v Ljubljani)",
+    "DOBA Fakulteta za uporabne družbene in poslovne študije Maribor (samostojni visokošolski zavod)",
+    "Ekonomska fakulteta (Univerza v Ljubljani)",
+    "Ekonomsko-poslovna fakulteta (Univerza v Mariboru)",
+    "ERUDIO Izobraževalni center (samostojni visokošolski zavod)",
+    "Evropska pravna fakulteta (Nova univerza)",
+    "Fakulteta za aplikativno naravoslovje (Univerza v Novi Gorici)",
+    "Fakulteta za arhitekturo (Univerza v Ljubljani)",
+    "Fakulteta za družbene vede (Univerza v Ljubljani)",
+    "Fakulteta za elektrotehniko (Univerza v Ljubljani)",
+    "Fakulteta za elektrotehniko, računalništvo in informatiko (Univerza v Mariboru)",
+    "Fakulteta za energetiko (Univerza v Mariboru)",
+    "Fakulteta za farmacijo (Univerza v Ljubljani)",
+    "Fakulteta za gradbeništvo in geodezijo (Univerza v Ljubljani)",
+    "Fakulteta za gradbeništvo (Univerza v Mariboru)",
+    "Fakulteta za humanistične študije (Univerza na Primorskem)",
+    "Fakulteta za humanistiko (Univerza v Novi Gorici)",
+    "Fakulteta za informacijske študije (Univerza v Novem mestu) (načrtovana)",
+    "Fakulteta za kemijo in kemijsko tehnologijo (Univerza v Ljubljani)",
+    "Fakulteta za kemijo in kemijsko tehnologijo (Univerza v Mariboru)",
+    "Fakulteta za kmetijstvo (Univerza v Mariboru)",
+    "Fakulteta za logistiko v Celju (Univerza v Mariboru)",
+    "Fakulteta za management (Univerza na Primorskem)",
+    "Fakulteta za matematiko in fiziko (Univerza v Ljubljani)",
+    "Fakulteta za matematiko, naravoslovje in informacijske tehnologije Koper (FAMNIT) (Univerza na Primorskem)",
+    "Fakulteta za organizacijske študije v Novem mestu (samostojni visokošolski zavod)",
+    "Fakulteta za organizacijske vede (Univerza v Mariboru)",
+    "Fakulteta za podiplomske državne in evropske študije (samostojni visokošolski zavod)",
+    "Fakulteta za podiplomski študij (Univerza v Novi Gorici)",
+    "Fakulteta za pomorstvo in promet Portorož (Univerza v Ljubljani)",
+    "Fakulteta za računalništvo in informatiko (Univerza v Ljubljani)",
+    "Fakulteta za slovenske študije Stanislava Škrabca (Univerza v Novi Gorici)",
+    "Fakulteta za socialno delo (Univerza v Ljubljani)",
+    "Fakulteta za strojništvo (Univerza v Ljubljani)",
+    "Fakulteta za strojništvo (Univerza v Mariboru)",
+    "Fakulteta za šport (Univerza v Ljubljani)",
+    "Fakulteta za uporabne družbene študije (samostojni visokošolski zavod)",
+    "Fakulteta za upravo (Univerza v Ljubljani)",
+    "Fakulteta za varnostne vede (Univerza v Mariboru)",
+    "Fakulteta za zdravstvene vede (Univerza v Mariboru)",
+    "Fakulteta za znanosti o okolju (Univerza v Novi Gorici)",
+    "Filozofska fakulteta (Univerza v Ljubljani)",
+    "Filozofska fakulteta (Univerza v Mariboru)",
+    "Fakulteta za naravoslovje in matematiko (Univerza v Mariboru)",
+    "Fakulteta za zdravstvene vede (Visokošolsko središče Novo mesto)",
+    "Institutum Studiorum Humanitatis - Fakulteta za podiplomski humanistični študij, Ljubljana (samostojni visokošolski zavod)",
+    "Medicinska fakulteta (Univerza v Ljubljani)",
+    "Medicinska fakulteta (Univerza v Mariboru)",
+    "Mednarodna fakulteta za družbene in poslovne študije (samostojni visokošolski zavod)",
+    "Mednarodna podiplomska šola Jožefa Stefana (samostojni visokošolski zavod)",
+    "MLC Fakulteta za management in pravo Ljubljana (samostojni visokošolski zavod)",
+    "Naravoslovnotehniška fakulteta (Univerza v Ljubljani)",
+    "Pedagoška fakulteta (Univerza na Primorskem)",
+    "Pedagoška fakulteta (Univerza v Ljubljani)",
+    "Pedagoška fakulteta (Univerza v Mariboru)",
+    "Poslovno-tehniška fakulteta (Univerza v Novi Gorici)",
+    "Pravna fakulteta (Univerza v Ljubljani)",
+    "Pravna fakulteta (Univerza v Mariboru)",
+    "Teološka fakulteta (Univerza v Ljubljani)",
+    "Veterinarska fakulteta (Univerza v Ljubljani)",
+]
+
+
+def _slugify(value: str) -> str:
+    import re
+    value = value.strip().lower()
+    # replace special slovene chars
+    value = (value
+             .replace('č', 'c').replace('ć', 'c')
+             .replace('š', 's')
+             .replace('ž', 'z')
+             .replace('đ', 'd'))
+    value = re.sub(r"[^a-z0-9]+", "-", value)
+    value = re.sub(r"-+", "-", value).strip('-')
+    return value[:48]
+
 
 def ensure_demo_schools():
     if db is None:
         return
     try:
+        # Ensure base demo
         if db["school"].count_documents({}) == 0:
             db["school"].insert_many(DEMO_SCHOOLS)
+        # Upsert extended list by name
+        for name in SLO_SCHOOL_NAMES:
+            if not name or len(name) == 1:
+                continue
+            existing = db["school"].find_one({"name": name})
+            if not existing:
+                sid = f"si-{_slugify(name)}"
+                db["school"].insert_one({"id": sid, "name": name})
     except Exception:
         pass
 
